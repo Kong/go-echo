@@ -22,7 +22,9 @@ repos:
   - id: forbid-crlf
   - id: remove-crlf
   - id: forbid-tabs
+    exclude: .go
   - id: remove-tabs
+    exclude: .go
 - repo: https://github.com/Yelp/detect-secrets
   rev: v1.1.0
   hooks:
