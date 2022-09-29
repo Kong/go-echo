@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"log"
 	"net"
@@ -22,6 +24,11 @@ func main() {
 	podNamespace := os.Getenv("POD_NAMESPACE")
 	podIP := os.Getenv("POD_IP")
 	serviceAccountName := os.Getenv("SERVICE_ACCOUNT")
+
+	tlsPort := os.Getenv("TLS_PORT")
+	tlsCACertFile := os.Getenv("TLS_CA_CERT_FILE")
+	tlsCertFile := os.Getenv("TLS_CERT_FILE")
+	tlsKeyFile := os.Getenv("TLS_KEY_FILE")
 
 	message := ""
 
@@ -45,6 +52,21 @@ func main() {
 		message = message + fmt.Sprintf("Service %s.\n", serviceAccountName)
 	}
 
+	// spawn a TLS server if TLS_PORT, TLS_CERT_FILE, TLS_KEY_FILE are set.
+	// append CA cert from TLS_CA_CERT_FILE if set.
+	if tlsPort != "" && tlsCertFile != "" && tlsKeyFile != "" {
+		tlsListener, err := makeTLSListner(
+			tlsPort, tlsCACertFile, tlsCertFile, tlsKeyFile,
+		)
+		if err != nil {
+			log.Panicln(err)
+		}
+
+		tlsMsg := message + "Through TLS connection.\n"
+		log.Println("Listening on TLS port", tlsPort)
+		go listenAndHandle(tlsListener, tlsMsg)
+	}
+
 	l, err := net.Listen("tcp", ":"+tcpPort)
 	if err != nil {
 		log.Panicln(err)
@@ -53,8 +75,12 @@ func main() {
 	log.Println("Listening on TCP port", tcpPort)
 	defer l.Close()
 
+	listenAndHandle(l, message)
+}
+
+func listenAndHandle(listener net.Listener, message string) {
 	for {
-		conn, err := l.Accept()
+		conn, err := listener.Accept()
 		if err != nil {
 			log.Panicln(err)
 		}
@@ -85,4 +111,34 @@ func handleTCPRequest(conn net.Conn, message string) {
 		log.Printf(clientId+" - Received Data (converted to string): %s", data)
 		conn.Write(data)
 	}
+}
+
+func makeTLSListner(tlsPort string, tlsCACertFile string, tlsCertFile string, tlsKeyFile string) (
+	net.Listener, error) {
+
+	roots := x509.NewCertPool()
+	if tlsCACertFile != "" {
+		caCertPEM, err := os.ReadFile(tlsCACertFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load CA, err %v", err)
+		}
+		if !roots.AppendCertsFromPEM(caCertPEM) {
+			return nil, fmt.Errorf("failed to append CA cert")
+		}
+	}
+
+	cert, err := tls.LoadX509KeyPair(tlsCertFile, tlsKeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load cert, err %v", err)
+	}
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		RootCAs:      roots,
+	}
+	tlsListener, err := tls.Listen("tcp", ":"+tlsPort, tlsConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to listen on TLS port %s: %v", tlsPort, err)
+	}
+
+	return tlsListener, nil
 }
