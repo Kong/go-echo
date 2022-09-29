@@ -6,7 +6,7 @@ This repo is a fork of https://github.com/cjimti/go-echo maintained by Kong. The
 
 Run `go-echo` to start a TCP server listening port on 1025. The server will return a welcome message to the client and will echo what it received from client. Set environment variable `TCP_PORT` to configure a different port to listen on.
 
-Set `TLS_PORT` to the port to listen on, `TLS_CA_CERT_FILE` to path of CA certificat file, `TLS_CERT_FILE` and `TLS_KEY_FILE` to paths of certificate-key pair to start a TLS server doing the same thing.
+In order to run the server as a TLS server, set `TLS_PORT` to the port to listen on, `TLS_CA_CERT_FILE` to path of CA certificate file, `TLS_CERT_FILE` and `TLS_KEY_FILE` to paths of certificate-key pair.
 
 
 ## Release procedure
