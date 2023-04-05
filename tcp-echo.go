@@ -49,7 +49,7 @@ func main() {
 	}
 
 	if serviceAccountName != "" {
-		message = message + fmt.Sprintf("Service %s.\n", serviceAccountName)
+		message = message + fmt.Sprintf("Service account %s.\n", serviceAccountName)
 	}
 
 	// spawn a TLS server if TLS_PORT, TLS_CERT_FILE, TLS_KEY_FILE are set.
