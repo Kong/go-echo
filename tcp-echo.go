@@ -18,6 +18,10 @@ func main() {
 	if tcpPort == "" {
 		tcpPort = "1025"
 	}
+	udpPort := os.Getenv("UDP_PORT")
+	if udpPort == "" {
+		udpPort = "1026"
+	}
 
 	nodeName := os.Getenv("NODE_NAME")
 	podName := os.Getenv("POD_NAME")
@@ -67,6 +71,16 @@ func main() {
 		go listenAndHandle(tlsListener, tlsMsg)
 	}
 
+	u, err := net.ListenPacket("udp", ":"+udpPort)
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	log.Println("Listening on UDP port", udpPort)
+	defer u.Close()
+
+	go listenPacketAndHandle(u, message)
+
 	l, err := net.Listen("tcp", ":"+tcpPort)
 	if err != nil {
 		log.Panicln(err)
@@ -87,6 +101,32 @@ func listenAndHandle(listener net.Listener, message string) {
 
 		go handleTCPRequest(conn, message)
 	}
+}
+
+func listenPacketAndHandle(conn net.PacketConn, message string) {
+	for {
+		buf := make([]byte, 1024)
+		size, addr, err := conn.ReadFrom(buf)
+		if err != nil {
+			log.Println("Read error:", err)
+			continue
+		}
+		_, err = conn.WriteTo([]byte(message), addr)
+		if err != nil {
+			log.Println("Message write error:", err)
+			continue
+		}
+		data := buf[:size]
+		log.Println("Received Raw UDP Data:", data)
+		log.Printf("Received UDP Data (converted to string): %s", data)
+		_, err = conn.WriteTo(data, addr)
+		if err != nil {
+			log.Println("Echo write error:", err)
+			continue
+		}
+		continue
+	}
+
 }
 
 func handleTCPRequest(conn net.Conn, message string) {
