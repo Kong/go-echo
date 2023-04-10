@@ -4,8 +4,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"log"
 	"net"
+	"net/http"
 	"os"
 
 	uuid "github.com/google/uuid"
@@ -21,6 +23,10 @@ func main() {
 	udpPort := os.Getenv("UDP_PORT")
 	if udpPort == "" {
 		udpPort = "1026"
+	}
+	httpPort := os.Getenv("HTTP_PORT")
+	if httpPort == "" {
+		httpPort = "1027"
 	}
 
 	nodeName := os.Getenv("NODE_NAME")
@@ -71,6 +77,7 @@ func main() {
 		go listenAndHandle(tlsListener, tlsMsg)
 	}
 
+	// spawn a UDP server
 	u, err := net.ListenPacket("udp", ":"+udpPort)
 	if err != nil {
 		log.Panicln(err)
@@ -81,6 +88,22 @@ func main() {
 
 	go listenPacketAndHandle(u, message)
 
+	// spawn an HTTP server
+	http.HandleFunc("/", generateHTTPHandler(message))
+	h, err := net.Listen("tcp", ":"+httpPort)
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	log.Println("Listening on HTTP port", httpPort)
+	defer h.Close()
+
+	go func() {
+		err := http.Serve(h, nil)
+		log.Println("HTTP server exited: ", err)
+	}()
+
+	// spawn a TCP server
 	l, err := net.Listen("tcp", ":"+tcpPort)
 	if err != nil {
 		log.Panicln(err)
@@ -127,6 +150,26 @@ func listenPacketAndHandle(conn net.PacketConn, message string) {
 		continue
 	}
 
+}
+
+func generateHTTPHandler(message string) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		callUuidV4, _ := uuid.NewUUID()
+		clientId := callUuidV4.String()
+
+		log.Println(clientId + " - HTTP connection open.")
+		defer log.Println(clientId + " - HTTP connection closed.")
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			log.Println(clientId+" - HTTP body read error: ", err)
+		}
+		log.Println(clientId+" - Received HTTP Raw Data:", body)
+		log.Printf(clientId+" - Received HTTP Data (converted to string): %s", body)
+
+		io.WriteString(w, message)
+		io.WriteString(w, string(body)+"\n")
+	}
 }
 
 func handleTCPRequest(conn net.Conn, message string) {
