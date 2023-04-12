@@ -154,7 +154,10 @@ func listenPacketAndHandle(conn net.PacketConn, message string) {
 
 func generateHTTPHandler(message string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		callUuidV4, _ := uuid.NewUUID()
+		callUuidV4, err := uuid.NewUUID()
+		if err != nil {
+			log.Println("could not generate a client ID", err)
+		}
 		clientId := callUuidV4.String()
 
 		log.Println(clientId + " - HTTP connection open.")
@@ -167,14 +170,27 @@ func generateHTTPHandler(message string) func(w http.ResponseWriter, r *http.Req
 		log.Println(clientId+" - Received HTTP Raw Data:", body)
 		log.Printf(clientId+" - Received HTTP Data (converted to string): %s", body)
 
-		io.WriteString(w, message)
-		io.WriteString(w, string(body)+"\n")
+		_, err = io.WriteString(w, message)
+		if err != nil {
+			log.Println("could not write data", err)
+			http.Error(w, fmt.Sprintf("could not write data: %s", err), http.StatusInternalServerError)
+			return
+		}
+		_, err = io.WriteString(w, string(body)+"\n")
+		if err != nil {
+			log.Println("could not write data", err)
+			http.Error(w, fmt.Sprintf("could not write data: %s", err), http.StatusInternalServerError)
+			return
+		}
 	}
 }
 
 func handleTCPRequest(conn net.Conn, message string) {
-	callUuidV4, _ := uuid.NewUUID()
+	callUuidV4, err := uuid.NewUUID()
 	clientId := callUuidV4.String()
+	if err != nil {
+		log.Println("could not generate a client ID", err)
+	}
 
 	log.Println(clientId + " - TCP connection open.")
 	defer conn.Close()
@@ -192,7 +208,10 @@ func handleTCPRequest(conn net.Conn, message string) {
 
 		log.Println(clientId+" - Received Raw Data:", data)
 		log.Printf(clientId+" - Received Data (converted to string): %s", data)
-		conn.Write(data)
+		_, err = conn.Write(data)
+		if err != nil {
+			log.Println("could not write data", err)
+		}
 	}
 }
 
