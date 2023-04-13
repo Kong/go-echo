@@ -166,6 +166,8 @@ func generateHTTPHandler(message string) func(w http.ResponseWriter, r *http.Req
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			log.Println(clientId+" - HTTP body read error: ", err)
+			http.Error(w, fmt.Sprintf("could not read data: %s", err), http.StatusInternalServerError)
+			return
 		}
 		log.Println(clientId+" - Received HTTP Raw Data:", body)
 		log.Printf(clientId+" - Received HTTP Data (converted to string): %s", body)
