@@ -4,8 +4,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"log"
 	"net"
+	"net/http"
 	"os"
 
 	uuid "github.com/google/uuid"
@@ -17,6 +19,14 @@ func main() {
 	tcpPort := os.Getenv("TCP_PORT")
 	if tcpPort == "" {
 		tcpPort = "1025"
+	}
+	udpPort := os.Getenv("UDP_PORT")
+	if udpPort == "" {
+		udpPort = "1026"
+	}
+	httpPort := os.Getenv("HTTP_PORT")
+	if httpPort == "" {
+		httpPort = "1027"
 	}
 
 	nodeName := os.Getenv("NODE_NAME")
@@ -49,7 +59,7 @@ func main() {
 	}
 
 	if serviceAccountName != "" {
-		message = message + fmt.Sprintf("Service %s.\n", serviceAccountName)
+		message = message + fmt.Sprintf("Service account %s.\n", serviceAccountName)
 	}
 
 	// spawn a TLS server if TLS_PORT, TLS_CERT_FILE, TLS_KEY_FILE are set.
@@ -67,6 +77,33 @@ func main() {
 		go listenAndHandle(tlsListener, tlsMsg)
 	}
 
+	// spawn a UDP server
+	u, err := net.ListenPacket("udp", ":"+udpPort)
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	log.Println("Listening on UDP port", udpPort)
+	defer u.Close()
+
+	go listenPacketAndHandle(u, message)
+
+	// spawn an HTTP server
+	http.HandleFunc("/", generateHTTPHandler(message))
+	h, err := net.Listen("tcp", ":"+httpPort)
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	log.Println("Listening on HTTP port", httpPort)
+	defer h.Close()
+
+	go func() {
+		err := http.Serve(h, nil)
+		log.Println("HTTP server exited: ", err)
+	}()
+
+	// spawn a TCP server
 	l, err := net.Listen("tcp", ":"+tcpPort)
 	if err != nil {
 		log.Panicln(err)
@@ -89,9 +126,73 @@ func listenAndHandle(listener net.Listener, message string) {
 	}
 }
 
+func listenPacketAndHandle(conn net.PacketConn, message string) {
+	for {
+		buf := make([]byte, 1024)
+		size, addr, err := conn.ReadFrom(buf)
+		if err != nil {
+			log.Println("Read error:", err)
+			continue
+		}
+		_, err = conn.WriteTo([]byte(message), addr)
+		if err != nil {
+			log.Println("Message write error:", err)
+			continue
+		}
+		data := buf[:size]
+		log.Println("Received Raw UDP Data:", data)
+		log.Printf("Received UDP Data (converted to string): %s", data)
+		_, err = conn.WriteTo(data, addr)
+		if err != nil {
+			log.Println("Echo write error:", err)
+			continue
+		}
+		continue
+	}
+
+}
+
+func generateHTTPHandler(message string) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		callUuidV4, err := uuid.NewUUID()
+		if err != nil {
+			log.Println("could not generate a client ID", err)
+		}
+		clientId := callUuidV4.String()
+
+		log.Println(clientId + " - HTTP connection open.")
+		defer log.Println(clientId + " - HTTP connection closed.")
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			log.Println(clientId+" - HTTP body read error: ", err)
+			http.Error(w, fmt.Sprintf("could not read data: %s", err), http.StatusInternalServerError)
+			return
+		}
+		log.Println(clientId+" - Received HTTP Raw Data:", body)
+		log.Printf(clientId+" - Received HTTP Data (converted to string): %s", body)
+
+		_, err = io.WriteString(w, message)
+		if err != nil {
+			log.Println("could not write data", err)
+			http.Error(w, fmt.Sprintf("could not write data: %s", err), http.StatusInternalServerError)
+			return
+		}
+		_, err = io.WriteString(w, string(body)+"\n")
+		if err != nil {
+			log.Println("could not write data", err)
+			http.Error(w, fmt.Sprintf("could not write data: %s", err), http.StatusInternalServerError)
+			return
+		}
+	}
+}
+
 func handleTCPRequest(conn net.Conn, message string) {
-	callUuidV4, _ := uuid.NewUUID()
+	callUuidV4, err := uuid.NewUUID()
 	clientId := callUuidV4.String()
+	if err != nil {
+		log.Println("could not generate a client ID", err)
+	}
 
 	log.Println(clientId + " - TCP connection open.")
 	defer conn.Close()
@@ -109,7 +210,10 @@ func handleTCPRequest(conn net.Conn, message string) {
 
 		log.Println(clientId+" - Received Raw Data:", data)
 		log.Printf(clientId+" - Received Data (converted to string): %s", data)
-		conn.Write(data)
+		_, err = conn.Write(data)
+		if err != nil {
+			log.Println("could not write data", err)
+		}
 	}
 }
 
