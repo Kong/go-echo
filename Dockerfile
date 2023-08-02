@@ -1,4 +1,4 @@
-FROM golang:1.20.6 as builder
+FROM golang:1.20.7 as builder
 
 COPY . /go/src/github.com/kong/go-echo
 
