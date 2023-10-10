@@ -172,7 +172,19 @@ func generateHTTPHandler(message string) func(w http.ResponseWriter, r *http.Req
 		log.Println(clientId+" - Received HTTP Raw Data:", body)
 		log.Printf(clientId+" - Received HTTP Data (converted to string): %s", body)
 
-		_, err = io.WriteString(w, message)
+		// Add request details to the response
+
+		httpMessage := message
+		if r.URL.Query().Get("details") == "true" {
+			httpMessage += "\nHTTP request details\n"
+			httpMessage += "---------------------\n"
+			httpMessage += fmt.Sprintf("Protocol: %s\n", r.Proto)
+			httpMessage += fmt.Sprintf("Host: %s\n", r.Host)
+			httpMessage += fmt.Sprintf("Method: %s\n", r.Method)
+			httpMessage += fmt.Sprintf("URL: %s\n", r.URL)
+		}
+
+		_, err = io.WriteString(w, httpMessage)
 		if err != nil {
 			log.Println("could not write data", err)
 			http.Error(w, fmt.Sprintf("could not write data: %s", err), http.StatusInternalServerError)
