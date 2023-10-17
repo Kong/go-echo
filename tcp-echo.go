@@ -8,13 +8,13 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 
 	uuid "github.com/google/uuid"
 )
 
 func main() {
-
 	// ENV
 	tcpPort := os.Getenv("TCP_PORT")
 	if tcpPort == "" {
@@ -149,11 +149,11 @@ func listenPacketAndHandle(conn net.PacketConn, message string) {
 		}
 		continue
 	}
-
 }
 
 func generateHTTPHandler(message string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		message := message
 		callUuidV4, err := uuid.NewUUID()
 		if err != nil {
 			log.Println("could not generate a client ID", err)
@@ -173,25 +173,27 @@ func generateHTTPHandler(message string) func(w http.ResponseWriter, r *http.Req
 		log.Printf(clientId+" - Received HTTP Data (converted to string): %s", body)
 
 		// Add request details to the response
-
-		httpMessage := message
-		if r.URL.Query().Get("details") == "true" {
-			httpMessage += "\nHTTP request details\n"
-			httpMessage += "---------------------\n"
-			httpMessage += fmt.Sprintf("Protocol: %s\n", r.Proto)
-			httpMessage += fmt.Sprintf("Host: %s\n", r.Host)
-			httpMessage += fmt.Sprintf("Method: %s\n", r.Method)
-			httpMessage += fmt.Sprintf("URL: %s\n", r.URL)
+		m, err := url.ParseQuery(r.URL.RawQuery)
+		if err != nil {
+			log.Println(clientId+" - HTTP request query parsing error: ", err)
+			http.Error(w, fmt.Sprintf("could not parse request query: %s", err), http.StatusInternalServerError)
+			return
+		}
+		if m.Get("details") == "true" {
+			message += "\nHTTP request details\n"
+			message += "---------------------\n"
+			message += fmt.Sprintf("Protocol: %s\n", r.Proto)
+			message += fmt.Sprintf("Host: %s\n", r.Host)
+			message += fmt.Sprintf("Method: %s\n", r.Method)
+			message += fmt.Sprintf("URL: %s\n", r.URL)
 		}
 
-		_, err = io.WriteString(w, httpMessage)
-		if err != nil {
+		if _, err = io.WriteString(w, message); err != nil {
 			log.Println("could not write data", err)
 			http.Error(w, fmt.Sprintf("could not write data: %s", err), http.StatusInternalServerError)
 			return
 		}
-		_, err = io.WriteString(w, string(body)+"\n")
-		if err != nil {
+		if _, err = io.WriteString(w, string(body)+"\n"); err != nil {
 			log.Println("could not write data", err)
 			http.Error(w, fmt.Sprintf("could not write data: %s", err), http.StatusInternalServerError)
 			return
@@ -230,8 +232,8 @@ func handleTCPRequest(conn net.Conn, message string) {
 }
 
 func makeTLSListner(tlsPort string, tlsCACertFile string, tlsCertFile string, tlsKeyFile string) (
-	net.Listener, error) {
-
+	net.Listener, error,
+) {
 	roots := x509.NewCertPool()
 	if tlsCACertFile != "" {
 		caCertPEM, err := os.ReadFile(tlsCACertFile)
