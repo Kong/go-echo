@@ -40,6 +40,11 @@ func main() {
 	tlsCertFile := os.Getenv("TLS_CERT_FILE")
 	tlsKeyFile := os.Getenv("TLS_KEY_FILE")
 
+	httpsPort := os.Getenv("HTTPS_PORT")
+	if httpsPort != "" && (tlsCertFile == "" || tlsKeyFile == "") {
+		log.Panicln("HTTPS_PORT is set but TLS_CERT_FILE or TLS_KEY_FILE is not set.")
+	}
+
 	message := ""
 
 	if nodeName != "" {
@@ -102,6 +107,21 @@ func main() {
 		err := http.Serve(h, nil)
 		log.Println("HTTP server exited: ", err)
 	}()
+
+	// spawn an optional HTTPS server
+	if httpsPort != "" {
+		httpsHandler := generateHTTPHandler(message + "Through HTTPS connection.\n")
+		httpsServer := &http.Server{
+			Addr:    ":" + httpsPort,
+			Handler: http.HandlerFunc(httpsHandler),
+		}
+		go func() {
+			err := httpsServer.ListenAndServeTLS(tlsCertFile, tlsKeyFile)
+			log.Println("HTTPS server exited: ", err)
+		}()
+
+		log.Println("Listening on HTTPS port", httpsPort)
+	}
 
 	// spawn a TCP server
 	l, err := net.Listen("tcp", ":"+tcpPort)

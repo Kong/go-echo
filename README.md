@@ -12,7 +12,9 @@ Run `go-echo` to start a echo server for different protocols, with ports configu
 - `UDP`  on port `1026` adjustable with `UDP_PORT`
 - `HTTP` on port `1027` adjustable with `HTTP_PORT`
 
-In order to run the server as a TLS server, set `TLS_PORT` to the port to listen on, `TLS_CA_CERT_FILE` to path of CA certificate file, `TLS_CERT_FILE` and `TLS_KEY_FILE` to paths of certificate-key pair.
+In order to run a TCP over TLS server, set `TLS_PORT` to the port to listen on, `TLS_CA_CERT_FILE` to path of CA certificate file, `TLS_CERT_FILE` and `TLS_KEY_FILE` to paths of certificate-key pair.
+
+In order to run a HTTPs server, set `HTTPS_PORT` to the port to listen on, `TLS_CERT_FILE` and `TLS_KEY_FILE` to paths of certificate-key pair.
 
 `go-echo` returns additional info in the form of the below message when specific environment variables are
 explicitly set
