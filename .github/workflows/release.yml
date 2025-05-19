@@ -6,7 +6,6 @@ on:  # yamllint disable-line rule:truthy
     types: [published]
 
 permissions:
-  actions: read
   contents: read
 
 jobs:
