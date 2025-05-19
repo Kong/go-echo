@@ -7,22 +7,26 @@ on:  # yamllint disable-line rule:truthy
     branches:
     - main
 
+permissions:
+  actions: read
+  contents: read
+
 jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
     - name: Set up QEMU
       id: qemu
-      uses: docker/setup-qemu-action@v3
+      uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3
       with:
         platforms: linux/amd64,linux/arm64
     - name: Setup buildx
-      uses: docker/setup-buildx-action@v3
+      uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3
     - name: Build Only
-      uses: docker/bake-action@v5
+      uses: docker/bake-action@4a9a8d494466d37134e2bfca2d3a8de8fb2681ad # v5
       with:
         files: |
           ./docker-bake.hcl
