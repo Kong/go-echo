@@ -38,7 +38,7 @@ jobs:
       uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
+        password: ${{ secrets.DOCKERHUB_PUSH_TOKEN }}
     - name: Build & Push
       uses: docker/bake-action@4a9a8d494466d37134e2bfca2d3a8de8fb2681ad # v5
       with:
