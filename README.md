@@ -15,7 +15,7 @@ Run `go-echo` to start a echo server for different protocols, with ports configu
 
 The HTTP listener also exposes a mock A2A agent:
 
-- `GET /.well-known/agent-card.json` returns a static agent card.
+- `GET /.well-known/agent-card.json` returns a static agent card. [Well-Known URI Registration](https://a2a-protocol.org/latest/specification/#143-well-known-uri-registration)
 - `POST /a2a` accepts JSON-RPC `message/send` requests and returns a deterministic text response.
 
 In order to run a TCP over TLS server, set `TLS_PORT` to the port to listen on, `TLS_CA_CERT_FILE` to path of CA certificate file, `TLS_CERT_FILE` and `TLS_KEY_FILE` to paths of certificate-key pair.
