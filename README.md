@@ -3,6 +3,7 @@
 This repo is a fork of <https://github.com/cjimti/go-echo> maintained by Kong. The main purpose of this fork is to have multi-arch images with both amd64 and arm64 support.
 
 It adds UDP and HTTP echo services in addition to the original TCP and TLS services.
+It also serves a small deterministic A2A-compatible mock agent over HTTP for AI Gateway tests.
 
 ## Quick Start Guide
 
@@ -11,6 +12,11 @@ Run `go-echo` to start a echo server for different protocols, with ports configu
 - `TCP`  on port `1025` adjustable with `TCP_PORT`
 - `UDP`  on port `1026` adjustable with `UDP_PORT`
 - `HTTP` on port `1027` adjustable with `HTTP_PORT`
+
+The HTTP listener also exposes a mock A2A agent:
+
+- `GET /.well-known/agent-card.json` returns a static agent card. [Well-Known URI Registration](https://a2a-protocol.org/latest/specification/#143-well-known-uri-registration)
+- `POST /a2a` accepts JSON-RPC `message/send` requests and returns a deterministic text response.
 
 In order to run a TCP over TLS server, set `TLS_PORT` to the port to listen on, `TLS_CA_CERT_FILE` to path of CA certificate file, `TLS_CERT_FILE` and `TLS_KEY_FILE` to paths of certificate-key pair.
 
