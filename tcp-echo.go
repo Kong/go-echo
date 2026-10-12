@@ -90,7 +90,7 @@ func main() {
 	}
 
 	log.Println("Listening on UDP port", udpPort)
-	defer u.Close()
+	defer closeAndLog(u, "UDP listener")
 
 	go listenPacketAndHandle(u, message)
 
@@ -104,7 +104,7 @@ func main() {
 	}
 
 	log.Println("Listening on HTTP port", httpPort)
-	defer h.Close()
+	defer closeAndLog(h, "HTTP listener")
 
 	go func() {
 		err := http.Serve(h, nil)
@@ -133,7 +133,7 @@ func main() {
 	}
 
 	log.Println("Listening on TCP port", tcpPort)
-	defer l.Close()
+	defer closeAndLog(l, "TCP listener")
 
 	listenAndHandle(l, message)
 }
@@ -163,7 +163,7 @@ func listenPacketAndHandle(conn net.PacketConn, message string) {
 			continue
 		}
 		data := buf[:size]
-		log.Println("Received Raw UDP Data:", data)
+		log.Printf("Received Raw UDP Data: %v", data)
 		log.Printf("Received UDP Data (converted to string): %s", data)
 		_, err = conn.WriteTo(data, addr)
 		if err != nil {
@@ -192,7 +192,7 @@ func generateHTTPHandler(message string) func(w http.ResponseWriter, r *http.Req
 			http.Error(w, fmt.Sprintf("could not read data: %s", err), http.StatusInternalServerError)
 			return
 		}
-		log.Println(clientId+" - Received HTTP Raw Data:", body)
+		log.Printf("%s - Received HTTP Raw Data: %v", clientId, body)
 		log.Printf(clientId+" - Received HTTP Data (converted to string): %s", body)
 
 		// Add request details to the response
@@ -380,10 +380,14 @@ func handleTCPRequest(conn net.Conn, message string) {
 	}
 
 	log.Println(clientId + " - TCP connection open.")
-	defer conn.Close()
+	defer closeAndLog(conn, clientId+" - TCP connection")
 	defer log.Println(clientId + " - TCP connection closed.")
 
-	conn.Write([]byte(message))
+	_, err = conn.Write([]byte(message))
+	if err != nil {
+		log.Println(clientId+" - could not write welcome message", err)
+		return
+	}
 
 	for {
 		buf := make([]byte, 1024)
@@ -393,12 +397,18 @@ func handleTCPRequest(conn net.Conn, message string) {
 		}
 		data := buf[:size]
 
-		log.Println(clientId+" - Received Raw Data:", data)
+		log.Printf("%s - Received Raw Data: %v", clientId, data)
 		log.Printf(clientId+" - Received Data (converted to string): %s", data)
 		_, err = conn.Write(data)
 		if err != nil {
 			log.Println("could not write data", err)
 		}
+	}
+}
+
+func closeAndLog(c io.Closer, name string) {
+	if err := c.Close(); err != nil {
+		log.Println("could not close "+name+":", err)
 	}
 }
 
